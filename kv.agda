@@ -13,7 +13,6 @@ open import Data.Empty using (⊥)
 open import Function using (_∘_)
 
 data K+ : Set where
-  ⊥ᴷ : K+
   [_] : K → K+
   ⊤ᴷ : K+
 
@@ -21,8 +20,6 @@ data K+ : Set where
 []≡→≡ refl = refl
 
 data _<+_ : Rel K+ Level.zero where
-  ⊥<⊤ : ⊥ᴷ <+ ⊤ᴷ
-  ⊥<[_] : (k : K) → ⊥ᴷ <+ [ k ]
   [_]<⊤ : (k : K) → [ k ] <+ ⊤ᴷ
   <+[_] : {i j : K} → i < j → [ i ] <+ [ j ]
 
@@ -35,20 +32,12 @@ k+Order = record { isEquivalence = isEquivalence; trans = trans+; compare = comp
     module S = IsStrictTotalOrder keyOrder
 
     trans+ : Transitive _<+_
-    trans+ ⊥<⊤ ()
-    trans+ ⊥<[ k₁ ] [ .k₁ ]<⊤ = ⊥<⊤
-    trans+ ⊥<[ k₁ ] <+[ q ] = ⊥<[ _ ]
     trans+ [ k₁ ]<⊤ ()
     trans+ (<+[_] p) [ _ ]<⊤ = [ _ ]<⊤
     trans+ <+[ p ] <+[ q ] = <+[ S.trans p q ]
 
     compare+ : Trichotomous _≡_ _<+_
-    compare+ ⊥ᴷ ⊥ᴷ = tri≈ (λ ()) refl (λ ())
-    compare+ ⊥ᴷ [ x ] = tri< ⊥<[ x ] (λ ()) (λ ())
-    compare+ ⊥ᴷ ⊤ᴷ = tri< ⊥<⊤ (λ ()) (λ ())
-    compare+ [ x ] ⊥ᴷ = tri> (λ ()) (λ ()) ⊥<[ x ]
     compare+ [ x ] ⊤ᴷ = tri< [ x ]<⊤ (λ ()) (λ ())
-    compare+ ⊤ᴷ ⊥ᴷ = tri> (λ ()) (λ ()) ⊥<⊤
     compare+ ⊤ᴷ [ x ] = tri> (λ ()) (λ ()) [ x ]<⊤
     compare+ ⊤ᴷ ⊤ᴷ = tri≈ (λ ()) refl (λ ())
     compare+ [ x ] [ y ] with S.compare x y
