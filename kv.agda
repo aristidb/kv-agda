@@ -29,8 +29,6 @@ data _<+_ : Rel K+ Level.zero where
 <+[]→< : {x y : K} → [ x ] <+ [ y ] → x < y
 <+[]→< <+[ p₁ ] = p₁
 
---map-Tri : {A : Set} {_≈_ _<_ : Rel A Level.zero} {x y : A} → Tri (x < y) (x ≈ y) (y < x) 
-
 k+Order : IsStrictTotalOrder _≡_ _<+_
 k+Order = record { isEquivalence = isEquivalence; trans = trans+; compare = compare+; <-resp-≈ = resp₂ _ }
   where
@@ -59,6 +57,7 @@ k+Order = record { isEquivalence = isEquivalence; trans = trans+; compare = comp
     compare+ [ x ] [ y ] | tri> ¬a ¬b c = tri> (¬a ∘ <+[]→<) (¬b ∘ []≡→≡) <+[ c ]
 
 {- Ordered Key-Value Store -}
-data Store : Set where
-  ε : Store
+data Store : (min : K+) → Set where
+  ε : Store ⊤ᴷ
+  _⇒_⊣_∷_ : {min : K+} (k : K) (v : V) → [ k ] <+ min → Store [ k ]
 
