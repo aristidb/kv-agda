@@ -141,7 +141,14 @@ insert (k ⇒ v ⊣ x ∷ st) l w | tri< a ¬b ¬c = k ⇒ v ⊣ z<+x∧z<+y⇒z
 insert (.l ⇒ v ⊣ x ∷ st) l w | tri≈ ¬a refl ¬c = l ⇒ w ⊣ x ∷ st
 insert (k ⇒ v ⊣ x ∷ st) l w | tri> ¬a ¬b c = l ⇒ w ⊣ <+[ c ] ∷ (k ⇒ v ⊣ x ∷ st)
 
+insert⇒∈ : {min : K+} (st : Store min) (k : K) (v : V) → k ∈ insert st k v
+insert⇒∈ ε k v = head
+insert⇒∈ (k ⇒ v ⊣ x ∷ st) l w with S.compare k l
+insert⇒∈ (k ⇒ v ⊣ x ∷ st) l w | tri< a ¬b ¬c = tail (insert⇒∈ st l w)
+insert⇒∈ (.l ⇒ v ⊣ x ∷ st) l w | tri≈ ¬a refl ¬c = head
+insert⇒∈ (k ⇒ v ⊣ x ∷ st) l w | tri> ¬a ¬b c = head
+
 fromList : List (K × V) → ∃ Store
 fromList [] = ⊤ᴷ , ε
 fromList (x ∷ xs) with fromList xs
-... | tl = {!!}
+fromList ((k , v) ∷ xs) | min , st = minimum+ min [ k ] , insert st k v
