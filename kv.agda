@@ -1,6 +1,6 @@
 import Level
 open import Relation.Binary
-open import Relation.Binary.PropositionalEquality hiding ([_])
+open import Relation.Binary.PropositionalEquality as PE hiding ([_])
 
 module kv
   (K V : Set)
@@ -15,7 +15,15 @@ open import Data.List hiding ([_])
 open import Data.Product
 open import Data.Sum
 open import Relation.Nullary
-import Relation.Binary.Props.StrictTotalOrder as STOP
+
+x≤y→¬y<x : {A : Set} (_<_ : Rel A Level.zero) (ord : IsStrictPartialOrder _≡_ _<_) → ∀ {x y} → x < y ⊎ x ≡ y → ¬ y < x
+x≤y→¬y<x _<_ ord = proof
+  where
+    module PO = IsStrictPartialOrder ord
+
+    proof : ∀ {x y} → x < y ⊎ x ≡ y → ¬ y < x
+    proof (inj₁ x<y) = λ y<x → PO.irrefl refl (PO.trans x<y y<x)
+    proof (inj₂ x≡y) = PO.irrefl (sym x≡y)
 
 data K+ : Set where
   [_] : K → K+
@@ -35,8 +43,6 @@ module S = IsStrictTotalOrder keyOrder
 
 SO : StrictTotalOrder _ _ _
 SO = record { Carrier = K; _≈_ = _≡_; _<_ = _<_; isStrictTotalOrder = keyOrder }
-
-module SOP = STOP SO
 
 k+Order : IsStrictTotalOrder _≡_ _<+_
 k+Order = record { isEquivalence = isEquivalence; trans = trans+; compare = compare+; <-resp-≈ = resp₂ _ }
@@ -60,10 +66,8 @@ module S+ = IsStrictTotalOrder k+Order
 S+O : StrictTotalOrder _ _ _
 S+O = record { Carrier = K+; _≈_ = _≡_; _<_ = _<+_; isStrictTotalOrder = k+Order }
 
-module S+OP = STOP S+O
-
-_≤+_ : _
-_≤+_ = S+OP._≤_
+_≤+_ : Rel K+ Level.zero
+x ≤+ y = x <+ y ⊎ x ≡ y
 
 {- Ordered Key-Value Store -}
 data Store : (min : K+) → Set where
@@ -84,9 +88,7 @@ min≤all (tail {p = p} pos) | inj₁ x = inj₁ (S+.trans p x)
 min≤all (tail {p = p} pos) | inj₂ refl = inj₁ p
 
 min≤all′ : {min : K+} {k : K} {st : Store min} → k ∈ st → ¬ ([ k ] <+ min)
-min≤all′ pos with min≤all pos
-min≤all′ pos | inj₁ x = {!S+.irrefl !}
-min≤all′ pos | inj₂ y = {!!}
+min≤all′ pos = x≤y→¬y<x _<+_ S+.isStrictPartialOrder (min≤all pos)
 
 prove-∉ : {min : K+} {k k′ : K} {v : V} {p : [ k′ ] <+ min} {st : Store min} → k ≢ k′ → k ∉ st → k ∉ (k′ ⇒ v ⊣ p ∷ st)
 prove-∉ k≢k′ k∉st head = k≢k′ refl
@@ -94,7 +96,7 @@ prove-∉ k≢k′ k∉st (tail is-∈) = k∉st is-∈
 
 prove-∉2 : {min : K+} {k k′ : K} {v : V} {p : [ k′ ] <+ min} {st : Store min} → k < k′ → k ∉ (k′ ⇒ v ⊣ p ∷ st)
 prove-∉2 k<k′ head = S.irrefl refl k<k′
-prove-∉2 k<k′ (tail pos) = {!prove-∈2 !}
+prove-∉2 k<k′ (tail {p = p} pos) = min≤all′ pos (S+.trans <+[ k<k′ ] p)
 
 search : {min : K+} (st : Store min) (k : K) → Dec (k ∈ st)
 search st k = {!!}
@@ -111,11 +113,6 @@ search (k′ ⇒ v ⊣ x ∷ st) k | tri> ¬a ¬b c = no {!!}
 lookup : {k : K} {min : K+} {st : Store min} → k ∈ st → V
 lookup (head {v = v}) = v
 lookup (tail pos) = lookup pos
-
-{-
-lookup {k} .(k ⇒ v ⊣ p ∷ st) (head .k v p st) = v
-lookup {k} .(k′ ⇒ v ⊣ p ∷ st) (tail .k k′ v p q st pos) = lookup st pos
--}
 
 {-
 insert : {min : K+} → K × V → Store min → ∃ Store
