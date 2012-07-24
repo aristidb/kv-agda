@@ -9,7 +9,7 @@ module kv
 where
 
 open import Data.Unit using (⊤ ; tt)
-open import Data.Empty using (⊥)
+open import Data.Empty using (⊥ ; ⊥-elim)
 open import Function using (_∘_)
 open import Data.List hiding ([_])
 open import Data.Product
@@ -69,6 +69,24 @@ S+O = record { Carrier = K+; _≈_ = _≡_; _<_ = _<+_; isStrictTotalOrder = k+O
 _≤+_ : Rel K+ Level.zero
 x ≤+ y = x <+ y ⊎ x ≡ y
 
+minimum+ : K+ → K+ → K+
+minimum+ x y with S+.compare x y
+minimum+ x y | tri< a ¬b ¬c = x
+minimum+ x .x | tri≈ ¬a refl ¬c = x
+minimum+ x y | tri> ¬a ¬b c = y
+
+minimum+-correct : ∀ x y → minimum+ x y ≤+ x × minimum+ x y ≤+ y
+minimum+-correct x y with S+.compare x y
+minimum+-correct x y | tri< a ¬b ¬c = inj₂ refl , inj₁ a
+minimum+-correct x .x | tri≈ ¬a refl ¬c = inj₂ refl , inj₂ refl
+minimum+-correct x y | tri> ¬a ¬b c = inj₁ c , inj₂ refl
+
+z<+x∧z<+y⇒z<minimum+ : ∀ {x y z} → z <+ x → z <+ y → z <+ minimum+ x y
+z<+x∧z<+y⇒z<minimum+ {x} {y} z<+x z<+y with S+.compare x y
+z<+x∧z<+y⇒z<minimum+ z<+x z<+y | tri< a ¬b ¬c = z<+x
+z<+x∧z<+y⇒z<minimum+ z<+x z<+y | tri≈ ¬a refl ¬c = z<+x
+z<+x∧z<+y⇒z<minimum+ z<+x z<+y | tri> ¬a ¬b c = z<+y
+
 {- Ordered Key-Value Store -}
 data Store : (min : K+) → Set where
   ε : Store ⊤ᴷ
@@ -86,6 +104,11 @@ min≤all head = inj₂ refl
 min≤all (tail pos) with min≤all pos
 min≤all (tail {p = p} pos) | inj₁ x = inj₁ (S+.trans p x)
 min≤all (tail {p = p} pos) | inj₂ refl = inj₁ p
+
+min<all : {min : K+} {k : K} {st : Store min} → k ∈ st → min ≢ [ k ] → min <+ [ k ]
+min<all pos neq with min≤all pos
+min<all pos neq | inj₁ x = x
+min<all pos neq | inj₂ y = ⊥-elim (neq y)
 
 min≤all′ : {min : K+} {k : K} {st : Store min} → k ∈ st → ¬ ([ k ] <+ min)
 min≤all′ pos = x≤y→¬y<x _<+_ S+.isStrictPartialOrder (min≤all pos)
@@ -111,15 +134,12 @@ lookup : {k : K} {min : K+} {st : Store min} → k ∈ st → V
 lookup (head {v = v}) = v
 lookup (tail pos) = lookup pos
 
-{-
-insert : {min : K+} → K × V → Store min → ∃ Store
-insert (k , v) ε = [ k ] , k ⇒ v ⊣ [ k ]<⊤ ∷ ε
-insert (k′ , v′) (k ⇒ v ⊣ p ∷ st) with S.compare k k′
-insert (k′ , v′) (k ⇒ v ⊣ p ∷ st) | tri< a ¬b ¬c with insert (k′ , v′) st
-insert (k′ , v′) (k ⇒ v ⊣ p ∷ st) | tri< a ¬b ¬c | k+ , st′ = [ k ] , k ⇒ v ⊣ {!!} ∷ st′
-insert (.k , v′) (k ⇒ v ⊣ p ∷ st) | tri≈ ¬a refl ¬c = [ k ] , k ⇒ v′ ⊣ p ∷ st
-insert (k′ , v′) (k ⇒ v ⊣ p ∷ st) | tri> ¬a ¬b c = [ k′ ] , k′ ⇒ v′ ⊣ <+[ c ] ∷ (k ⇒ v ⊣ p ∷ st)
--}
+insert : {min : K+} (st : Store min) (k : K) → V → Store (minimum+ min [ k ])
+insert ε k v = k ⇒ v ⊣ [ k ]<⊤ ∷ ε
+insert (k ⇒ v ⊣ x ∷ st) l w with S.compare k l
+insert (k ⇒ v ⊣ x ∷ st) l w | tri< a ¬b ¬c = k ⇒ v ⊣ z<+x∧z<+y⇒z<minimum+ x <+[ a ] ∷ insert st l w
+insert (.l ⇒ v ⊣ x ∷ st) l w | tri≈ ¬a refl ¬c = l ⇒ w ⊣ x ∷ st
+insert (k ⇒ v ⊣ x ∷ st) l w | tri> ¬a ¬b c = l ⇒ w ⊣ <+[ c ] ∷ (k ⇒ v ⊣ x ∷ st)
 
 fromList : List (K × V) → ∃ Store
 fromList [] = ⊤ᴷ , ε
