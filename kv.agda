@@ -99,16 +99,13 @@ prove-∉2 k<k′ head = S.irrefl refl k<k′
 prove-∉2 k<k′ (tail {p = p} pos) = min≤all′ pos (S+.trans <+[ k<k′ ] p)
 
 search : {min : K+} (st : Store min) (k : K) → Dec (k ∈ st)
-search st k = {!!}
-{-
 search ε k = no (λ ())
 search (k′ ⇒ v ⊣ x ∷ st) k with S.compare k k′
-search (k′ ⇒ v ⊣ x ∷ st) k | tri< a ¬b ¬c with search st k
-search (k′ ⇒ v ⊣ x ∷ st) k | tri< a ¬b ¬c | yes p = yes (tail a p)
-search (k′ ⇒ v ⊣ x ∷ st) k | tri< a ¬b ¬c | no ¬p = no (prove-∉ ¬b ¬p)
-search (.k ⇒ v ⊣ x ∷ st) k | tri≈ ¬a refl ¬c = yes head
-search (k′ ⇒ v ⊣ x ∷ st) k | tri> ¬a ¬b c = no {!!}
--}
+search (k′ ⇒ v ⊣ x ∷ st) k | tri< a ¬b ¬c = no (prove-∉2 a)
+search (k ⇒ v ⊣ x ∷ st) .k | tri≈ ¬a refl ¬c = yes head
+search (k′ ⇒ v ⊣ x ∷ st) k | tri> ¬a ¬b c with search st k
+search (k′ ⇒ v ⊣ x ∷ st) k | tri> ¬a ¬b c | yes k∈st = yes (tail k∈st)
+search (k′ ⇒ v ⊣ x ∷ st) k | tri> ¬a ¬b c | no k∉st = no (prove-∉ ¬b k∉st)
 
 lookup : {k : K} {min : K+} {st : Store min} → k ∈ st → V
 lookup (head {v = v}) = v
