@@ -76,6 +76,10 @@ S+O = record { Carrier = K+; _≈_ = _≡_; _<_ = _<+_; isStrictTotalOrder = k+O
 _≤+_ : Rel K+ Level.zero
 x ≤+ y = x <+ y ⊎ x ≡ y
 
+trans-<+-≤+ : ∀ {x y z} → x <+ y → y ≤+ z → x <+ z
+trans-<+-≤+ p (inj₁ q) = S+.trans p q
+trans-<+-≤+ p (inj₂ refl) = p
+
 minimum+ : K+ → K+ → K+
 minimum+ x y with S+.compare x y
 minimum+ x y | tri< a ¬b ¬c = x
@@ -229,6 +233,13 @@ insert-preserves-most-values (.l ⇒ v ⊣ x ∷ st) l w m (tail m∈st) l≢m |
   = refl
 insert-preserves-most-values (k ⇒ v ⊣ x ∷ st) l w m m∈st l≢m | tri> ¬a ¬b c
   = refl
+
+remove : {min : K+} {st : Store min} {k : K}
+       → k ∈ st → ∃ λ min′ → min ≤+ min′ × Store min′
+remove (head {p = p} {st = st}) = _ , inj₁ p , st
+remove (tail pos) with remove pos
+remove (tail {k′ = k} {v = v} {p = p} {st = st} pos) | min′ , min≤min′ , st′
+  = _ , inj₂ refl , k ⇒ v ⊣ trans-<+-≤+ p min≤min′ ∷ st′
 
 fromList : List (K × V) → ∃ Store
 fromList [] = ⊤ᴷ , ε

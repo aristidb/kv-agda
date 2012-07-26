@@ -51,3 +51,10 @@ lookup-1 = refl
 lookup-4 : lookup t4 ≡ 5
 lookup-4 = refl
 
+r1 : _
+r1 = proj₂ (proj₂ (remove t1))
+
+r1-list : toList r1 ≡ (4 , 5) ∷ []
+r1-list = refl
+
+
