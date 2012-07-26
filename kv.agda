@@ -105,11 +105,6 @@ min≤all (tail pos) with min≤all pos
 min≤all (tail {p = p} pos) | inj₁ x = inj₁ (S+.trans p x)
 min≤all (tail {p = p} pos) | inj₂ refl = inj₁ p
 
-min<all : {min : K+} {k : K} {st : Store min} → k ∈ st → min ≢ [ k ] → min <+ [ k ]
-min<all pos neq with min≤all pos
-min<all pos neq | inj₁ x = x
-min<all pos neq | inj₂ y = ⊥-elim (neq y)
-
 min≤all′ : {min : K+} {k : K} {st : Store min} → k ∈ st → ¬ ([ k ] <+ min)
 min≤all′ pos = x≤y→¬y<x _<+_ S+.isStrictPartialOrder (min≤all pos)
 
