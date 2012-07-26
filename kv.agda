@@ -183,6 +183,23 @@ insert-preserves-keys (.l ⇒ v ⊣ x ∷ st) l w m (tail pos) | tri≈ ¬a refl
 insert-preserves-keys (k ⇒ v ⊣ x ∷ st) l w m pos | tri> ¬a ¬b c
   = tail pos
 
+insert-preserves-most-values : {min : K+} (st : Store min) (k : K) (v : V)
+                             → ∀ l → (l∈st : l ∈ st) → k ≢ l
+                             → let l∈insert = insert-preserves-keys st k v l l∈st in
+                                lookup l∈st ≡ lookup l∈insert
+insert-preserves-most-values ε k v l () k≢l
+insert-preserves-most-values (k ⇒ v ⊣ x ∷ st) l w m m∈st l≢m with S.compare k l
+insert-preserves-most-values (.m ⇒ v ⊣ x ∷ st) l w m head l≢m | tri< a ¬b ¬c
+  = refl
+insert-preserves-most-values (k ⇒ v ⊣ x ∷ st) l w m (tail m∈st) l≢m | tri< a ¬b ¬c
+  = insert-preserves-most-values st l w m m∈st l≢m
+insert-preserves-most-values (.m ⇒ v ⊣ x ∷ st) l w m head l≢m | tri≈ ¬a b ¬c
+  = ⊥-elim (l≢m (sym b))
+insert-preserves-most-values (.l ⇒ v ⊣ x ∷ st) l w m (tail m∈st) l≢m | tri≈ ¬a refl ¬c
+  = refl
+insert-preserves-most-values (k ⇒ v ⊣ x ∷ st) l w m m∈st l≢m | tri> ¬a ¬b c
+  = refl
+
 fromList : List (K × V) → ∃ Store
 fromList [] = ⊤ᴷ , ε
 fromList (x ∷ xs) with fromList xs
