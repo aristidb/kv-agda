@@ -66,6 +66,12 @@ module S+ = IsStrictTotalOrder k+Order
 S+O : StrictTotalOrder _ _ _
 S+O = record { Carrier = K+; _≈_ = _≡_; _<_ = _<+_; isStrictTotalOrder = k+Order }
 
+<+⇒compare : ∀ {x y} → x <+ y → ∃ λ a → ∃ λ ¬b → ∃ λ ¬c → S+.compare x y ≡ tri< a ¬b ¬c
+<+⇒compare {x} {y} p with S+.compare x y
+<+⇒compare p | tri< a ¬b ¬c = a , ¬b , ¬c , refl
+<+⇒compare p | tri≈ ¬a b ¬c = ⊥-elim (¬a p)
+<+⇒compare p | tri> ¬a ¬b c = ⊥-elim (¬a p)
+
 _≤+_ : Rel K+ Level.zero
 x ≤+ y = x <+ y ⊎ x ≡ y
 
@@ -86,6 +92,12 @@ z<+x∧z<+y⇒z<minimum+ {x} {y} z<+x z<+y with S+.compare x y
 z<+x∧z<+y⇒z<minimum+ z<+x z<+y | tri< a ¬b ¬c = z<+x
 z<+x∧z<+y⇒z<minimum+ z<+x z<+y | tri≈ ¬a refl ¬c = z<+x
 z<+x∧z<+y⇒z<minimum+ z<+x z<+y | tri> ¬a ¬b c = z<+y
+
+minimum+-same : ∀ x → minimum+ x x ≡ x
+minimum+-same x with S+.compare x x
+minimum+-same x | tri< a ¬b ¬c = refl
+minimum+-same x | tri≈ ¬a refl ¬c = refl
+minimum+-same x | tri> ¬a ¬b c = refl
 
 {- Ordered Key-Value Store -}
 data Store : (min : K+) → Set where
@@ -204,3 +216,25 @@ fromList : List (K × V) → ∃ Store
 fromList [] = ⊤ᴷ , ε
 fromList (x ∷ xs) with fromList xs
 fromList ((k , v) ∷ xs) | min , st = minimum+ min [ k ] , insert st k v
+
+toList : {min : K+} → Store min → List (K × V)
+toList ε = []
+toList (k ⇒ v ⊣ x ∷ st) = (k , v) ∷ toList st
+
+merge : {min₁ min₂ : K+} (a : Store min₁) (b : Store min₂) → Store (minimum+ min₁ min₂)
+merge ε ε = ε
+merge ε (k ⇒ v ⊣ x ∷ b) = k ⇒ v ⊣ x ∷ b
+merge (k ⇒ v ⊣ x ∷ a) ε = k ⇒ v ⊣ x ∷ a
+merge (k ⇒ v ⊣ x ∷ sa) (l ⇒ w ⊣ y ∷ sb) with S.compare k l
+merge (_⇒_⊣_∷_ {m} k v x sa) (_⇒_⊣_∷_  {n} l w y sb) | tri< a ¬b ¬c
+  = k ⇒ v
+    ⊣ z<+x∧z<+y⇒z<minimum+ (z<+x∧z<+y⇒z<minimum+ x (S+.trans <+[ a ] y)) <+[ a ]
+    ∷ insert (merge sa sb) l w
+merge (k ⇒ v ⊣ x ∷ sa) (.k ⇒ w ⊣ y ∷ sb) | tri≈ ¬a refl ¬c
+  = k ⇒ v
+    ⊣ z<+x∧z<+y⇒z<minimum+ x y
+    ∷ merge sa sb
+merge (k ⇒ v ⊣ x ∷ sa) (l ⇒ w ⊣ y ∷ sb) | tri> ¬a ¬b c
+  = l ⇒ w
+    ⊣ z<+x∧z<+y⇒z<minimum+ (z<+x∧z<+y⇒z<minimum+ (S+.trans <+[ c ] x) y) <+[ c ]
+    ∷ insert (merge sa sb) k v
