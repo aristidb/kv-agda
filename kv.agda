@@ -234,6 +234,10 @@ insert-preserves-most-values (.l ⇒ v ⊣ x ∷ st) l w m (tail m∈st) l≢m |
 insert-preserves-most-values (k ⇒ v ⊣ x ∷ st) l w m m∈st l≢m | tri> ¬a ¬b c
   = refl
 
+insert-maybe : {min : K+} (st : Store min) (k : K) (v : Maybe V) → ∃ Store
+insert-maybe st k (just x) = , insert st k x
+insert-maybe st k nothing = , st
+
 remove : {min : K+} {st : Store min} {k : K}
        → k ∈ st → ∃ λ min′ → min ≤+ min′ × Store min′
 remove (head {p = p} {st = st}) = _ , inj₁ p , st
