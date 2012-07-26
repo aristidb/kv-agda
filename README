@@ -1,5 +1,5 @@
 Here, I want to experiment with key-value stores. More precisely, associative arrays that
-are sorted by they key, and allow things like range queries.
+are sorted by their key, and allow things like range queries.
 
 Things I'd like to play with: patches on key-value stores, and building data structures on
 top of them. Also, I just like playing with Agda.
