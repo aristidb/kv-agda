@@ -108,6 +108,13 @@ min≤all (tail {p = p} pos) | inj₂ refl = inj₁ p
 min≤all′ : {min : K+} {k : K} {st : Store min} → k ∈ st → ¬ ([ k ] <+ min)
 min≤all′ pos = x≤y→¬y<x _<+_ S+.isStrictPartialOrder (min≤all pos)
 
+∈-unique : {min : K+} {k : K} (st : Store min) → (p q : k ∈ st) → p ≡ q
+∈-unique ε () ()
+∈-unique {k = k} (.k ⇒ v ⊣ x ∷ st) head head = refl
+∈-unique {k = k} (.k ⇒ v ⊣ x ∷ st) head (tail q) = ⊥-elim (min≤all′ q x)
+∈-unique {.([ k ])} {k} (.k ⇒ v ⊣ x ∷ st) (tail p) head = ⊥-elim (min≤all′ p x)
+∈-unique (k₁ ⇒ v ⊣ x ∷ st) (tail p) (tail q) = cong tail (∈-unique st p q)
+ 
 prove-∉-head∧tail : {min : K+} {k k′ : K} {v : V} {p : [ k′ ] <+ min} {st : Store min} → k ≢ k′ → k ∉ st → k ∉ (k′ ⇒ v ⊣ p ∷ st)
 prove-∉-head∧tail k≢k′ k∉st head = k≢k′ refl
 prove-∉-head∧tail k≢k′ k∉st (tail is-∈) = k∉st is-∈
@@ -136,12 +143,25 @@ insert (k ⇒ v ⊣ x ∷ st) l w | tri< a ¬b ¬c = k ⇒ v ⊣ z<+x∧z<+y⇒z
 insert (.l ⇒ v ⊣ x ∷ st) l w | tri≈ ¬a refl ¬c = l ⇒ w ⊣ x ∷ st
 insert (k ⇒ v ⊣ x ∷ st) l w | tri> ¬a ¬b c = l ⇒ w ⊣ <+[ c ] ∷ (k ⇒ v ⊣ x ∷ st)
 
-insert⇒∈ : {min : K+} (st : Store min) (k : K) (v : V) → k ∈ insert st k v
-insert⇒∈ ε k v = head
-insert⇒∈ (k ⇒ v ⊣ x ∷ st) l w with S.compare k l
-insert⇒∈ (k ⇒ v ⊣ x ∷ st) l w | tri< a ¬b ¬c = tail (insert⇒∈ st l w)
-insert⇒∈ (.l ⇒ v ⊣ x ∷ st) l w | tri≈ ¬a refl ¬c = head
-insert⇒∈ (k ⇒ v ⊣ x ∷ st) l w | tri> ¬a ¬b c = head
+insert-adds-key : {min : K+} (st : Store min) (k : K) (v : V) → k ∈ insert st k v
+insert-adds-key ε k v = head
+insert-adds-key (k ⇒ v ⊣ x ∷ st) l w with S.compare k l
+insert-adds-key (k ⇒ v ⊣ x ∷ st) l w | tri< a ¬b ¬c = tail (insert-adds-key st l w)
+insert-adds-key (.l ⇒ v ⊣ x ∷ st) l w | tri≈ ¬a refl ¬c = head
+insert-adds-key (k ⇒ v ⊣ x ∷ st) l w | tri> ¬a ¬b c = head
+
+insert-changes-value : {min : K+} (st : Store min) (k : K) (v : V)
+                     → (pos : k ∈ insert st k v)
+                     → lookup pos ≡ v
+insert-changes-value ε k v head = refl
+insert-changes-value ε k v (tail ())
+insert-changes-value (k ⇒ v ⊣ x ∷ st) l w pos with S.compare k l
+insert-changes-value (.l ⇒ v ⊣ x ∷ st) l w head | tri< a ¬b ¬c = ⊥-elim (¬b refl)
+insert-changes-value (k ⇒ v ⊣ x ∷ st) l w (tail pos) | tri< a ¬b ¬c = insert-changes-value st l w pos
+insert-changes-value (.l ⇒ v ⊣ x ∷ st) l w pos | tri≈ ¬a refl ¬c with ∈-unique _ head pos
+insert-changes-value (.l ⇒ v ⊣ x ∷ st) l w .head | tri≈ ¬a refl ¬c | refl = refl
+insert-changes-value (k ⇒ v ⊣ x ∷ st) l w pos | tri> ¬a ¬b c with ∈-unique _ head pos
+insert-changes-value (k ⇒ v ⊣ x ∷ st) l w .head | tri> ¬a ¬b c | refl = refl
 
 fromList : List (K × V) → ∃ Store
 fromList [] = ⊤ᴷ , ε
