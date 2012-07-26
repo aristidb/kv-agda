@@ -18,6 +18,15 @@ module n = kv ℕ ℕ isStrictTotalOrder
 x : _
 x = proj₂ (fromList ((4 , 5) ∷ (1 , 2) ∷ []))
 
+y : _
+y = proj₂ (fromList ((1 , 2) ∷ (3 , 4) ∷ (5 , 6) ∷ []))
+
+z : _
+z = merge x y
+
+z-list : toList z ≡ (1 , 2) ∷ (3 , 4) ∷ (4 , 5) ∷ (5 , 6) ∷ []
+z-list = refl
+
 t1 : 1 ∈ x
 t1 = kv.head
 
