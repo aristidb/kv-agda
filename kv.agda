@@ -29,15 +29,15 @@ data K+ : Set where
   [_] : K → K+
   ⊤ᴷ : K+
 
-[]≡→≡ : {x y : K} → [ x ] ≡ [ y ] → x ≡ y
-[]≡→≡ refl = refl
+unbox-K+-equality : {x y : K} → [ x ] ≡ [ y ] → x ≡ y
+unbox-K+-equality refl = refl
 
 data _<+_ : Rel K+ Level.zero where
   [_]<⊤ : (k : K) → [ k ] <+ ⊤ᴷ
   <+[_] : {i j : K} → i < j → [ i ] <+ [ j ]
 
-<+[]→< : {x y : K} → [ x ] <+ [ y ] → x < y
-<+[]→< <+[ p₁ ] = p₁
+unbox-<+ : {x y : K} → [ x ] <+ [ y ] → x < y
+unbox-<+ <+[ p₁ ] = p₁
 
 module S = IsStrictTotalOrder keyOrder
 
@@ -57,9 +57,9 @@ k+Order = record { isEquivalence = isEquivalence; trans = trans+; compare = comp
     compare+ ⊤ᴷ [ x ] = tri> (λ ()) (λ ()) [ x ]<⊤
     compare+ ⊤ᴷ ⊤ᴷ = tri≈ (λ ()) refl (λ ())
     compare+ [ x ] [ y ] with S.compare x y
-    compare+ [ x ] [ y ] | tri< a ¬b ¬c = tri< <+[ a ] (¬b ∘ []≡→≡) (¬c ∘ <+[]→<)
-    compare+ [ x ] [ y ] | tri≈ ¬a b ¬c = tri≈ (¬a ∘ <+[]→<) (cong [_] b) (¬c ∘ <+[]→<)
-    compare+ [ x ] [ y ] | tri> ¬a ¬b c = tri> (¬a ∘ <+[]→<) (¬b ∘ []≡→≡) <+[ c ]
+    compare+ [ x ] [ y ] | tri< a ¬b ¬c = tri< <+[ a ] (¬b ∘ unbox-K+-equality) (¬c ∘ unbox-<+)
+    compare+ [ x ] [ y ] | tri≈ ¬a b ¬c = tri≈ (¬a ∘ unbox-<+) (cong [_] b) (¬c ∘ unbox-<+)
+    compare+ [ x ] [ y ] | tri> ¬a ¬b c = tri> (¬a ∘ unbox-<+) (¬b ∘ unbox-K+-equality) <+[ c ]
 
 module S+ = IsStrictTotalOrder k+Order
 
@@ -113,22 +113,22 @@ min<all pos neq | inj₂ y = ⊥-elim (neq y)
 min≤all′ : {min : K+} {k : K} {st : Store min} → k ∈ st → ¬ ([ k ] <+ min)
 min≤all′ pos = x≤y→¬y<x _<+_ S+.isStrictPartialOrder (min≤all pos)
 
-prove-∉ : {min : K+} {k k′ : K} {v : V} {p : [ k′ ] <+ min} {st : Store min} → k ≢ k′ → k ∉ st → k ∉ (k′ ⇒ v ⊣ p ∷ st)
-prove-∉ k≢k′ k∉st head = k≢k′ refl
-prove-∉ k≢k′ k∉st (tail is-∈) = k∉st is-∈
+prove-∉-head∧tail : {min : K+} {k k′ : K} {v : V} {p : [ k′ ] <+ min} {st : Store min} → k ≢ k′ → k ∉ st → k ∉ (k′ ⇒ v ⊣ p ∷ st)
+prove-∉-head∧tail k≢k′ k∉st head = k≢k′ refl
+prove-∉-head∧tail k≢k′ k∉st (tail is-∈) = k∉st is-∈
 
-prove-∉2 : {min : K+} {k k′ : K} {v : V} {p : [ k′ ] <+ min} {st : Store min} → k < k′ → k ∉ (k′ ⇒ v ⊣ p ∷ st)
-prove-∉2 k<k′ head = S.irrefl refl k<k′
-prove-∉2 k<k′ (tail {p = p} pos) = min≤all′ pos (S+.trans <+[ k<k′ ] p)
+prove-∉-<min : {min : K+} {k k′ : K} {v : V} {p : [ k′ ] <+ min} {st : Store min} → k < k′ → k ∉ (k′ ⇒ v ⊣ p ∷ st)
+prove-∉-<min k<k′ head = S.irrefl refl k<k′
+prove-∉-<min k<k′ (tail {p = p} pos) = min≤all′ pos (S+.trans <+[ k<k′ ] p)
 
 search : {min : K+} (st : Store min) (k : K) → Dec (k ∈ st)
 search ε k = no (λ ())
 search (k′ ⇒ v ⊣ x ∷ st) k with S.compare k k′
-search (k′ ⇒ v ⊣ x ∷ st) k | tri< a ¬b ¬c = no (prove-∉2 a)
+search (k′ ⇒ v ⊣ x ∷ st) k | tri< a ¬b ¬c = no (prove-∉-<min a)
 search (k ⇒ v ⊣ x ∷ st) .k | tri≈ ¬a refl ¬c = yes head
 search (k′ ⇒ v ⊣ x ∷ st) k | tri> ¬a ¬b c with search st k
 search (k′ ⇒ v ⊣ x ∷ st) k | tri> ¬a ¬b c | yes k∈st = yes (tail k∈st)
-search (k′ ⇒ v ⊣ x ∷ st) k | tri> ¬a ¬b c | no k∉st = no (prove-∉ ¬b k∉st)
+search (k′ ⇒ v ⊣ x ∷ st) k | tri> ¬a ¬b c | no k∉st = no (prove-∉-head∧tail ¬b k∉st)
 
 lookup : {k : K} {min : K+} {st : Store min} → k ∈ st → V
 lookup (head {v = v}) = v
