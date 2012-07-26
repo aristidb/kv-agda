@@ -14,6 +14,7 @@ open import Function using (_∘_)
 open import Data.List hiding ([_])
 open import Data.Product
 open import Data.Sum
+open import Data.Maybe
 open import Relation.Nullary
 
 x≤y→¬y<x : {A : Set} (_<_ : Rel A Level.zero) (ord : IsStrictPartialOrder _≡_ _<_) → ∀ {x y} → x < y ⊎ x ≡ y → ¬ y < x
@@ -159,6 +160,11 @@ search (k′ ⇒ v ⊣ x ∷ st) k | tri> ¬a ¬b c | no k∉st = no (prove-∉-
 lookup : {k : K} {min : K+} {st : Store min} → k ∈ st → V
 lookup (head {v = v}) = v
 lookup (tail pos) = lookup pos
+
+find : {min : K+} (st : Store min) (k : K) → Maybe V
+find st k with search st k
+find st k | yes pos = just (lookup pos)
+find st k | no ¬p = nothing
 
 insert : {min : K+} (st : Store min) (k : K) → V → Store (minimum+ min [ k ])
 insert ε k v = k ⇒ v ⊣ [ k ]<⊤ ∷ ε
