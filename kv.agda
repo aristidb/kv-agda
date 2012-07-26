@@ -99,6 +99,18 @@ minimum+-same x | tri< a ¬b ¬c = refl
 minimum+-same x | tri≈ ¬a refl ¬c = refl
 minimum+-same x | tri> ¬a ¬b c = refl
 
+minimum+-symmetric : ∀ x y → minimum+ x y ≡ minimum+ y x
+minimum+-symmetric x y with S+.compare x y | S+.compare y x
+minimum+-symmetric x y | tri< a ¬b ¬c | tri< d ¬e ¬f = ⊥-elim (¬f a)
+minimum+-symmetric x .x | tri< a ¬b ¬c | tri≈ ¬d refl ¬f = ⊥-elim (¬b refl)
+minimum+-symmetric x y | tri< a ¬b ¬c | tri> ¬d ¬e f = refl
+minimum+-symmetric .y y | tri≈ ¬a refl ¬c | tri< d ¬e ¬f = ⊥-elim (¬e refl)
+minimum+-symmetric x .x | tri≈ ¬a refl ¬c | tri≈ ¬d refl ¬f = refl
+minimum+-symmetric .y y | tri≈ ¬a refl ¬c | tri> ¬d ¬e f = ⊥-elim (¬e refl)
+minimum+-symmetric x y | tri> ¬a ¬b c | tri< d ¬e ¬f = refl
+minimum+-symmetric x .x | tri> ¬a ¬b c | tri≈ ¬d refl ¬f = ⊥-elim (¬b refl)
+minimum+-symmetric x y | tri> ¬a ¬b c | tri> ¬d ¬e f = ⊥-elim (¬d c)
+
 {- Ordered Key-Value Store -}
 data Store : (min : K+) → Set where
   ε : Store ⊤ᴷ
@@ -238,3 +250,13 @@ merge (k ⇒ v ⊣ x ∷ sa) (l ⇒ w ⊣ y ∷ sb) | tri> ¬a ¬b c
   = l ⇒ w
     ⊣ z<+x∧z<+y⇒z<minimum+ (z<+x∧z<+y⇒z<minimum+ (S+.trans <+[ c ] x) y) <+[ c ]
     ∷ insert (merge sa sb) k v
+
+{-
+merge-symmetric : {m n : K+} (a : Store m) (b : Store n)
+                → merge a b ≡ subst Store (minimum+-symmetric n m) (merge b a)
+merge-symmetric ε ε = refl
+merge-symmetric ε (k ⇒ v ⊣ x ∷ b) = refl
+merge-symmetric (k ⇒ v ⊣ x ∷ a) ε = refl
+merge-symmetric (k ⇒ v ⊣ x ∷ sa) (l ⇒ w ⊣ y ∷ sb) with S.compare k l
+... | cmp = {!!}
+-}
