@@ -114,7 +114,7 @@ min≤all′ pos = x≤y→¬y<x _<+_ S+.isStrictPartialOrder (min≤all pos)
 ∈-unique {k = k} (.k ⇒ v ⊣ x ∷ st) head (tail q) = ⊥-elim (min≤all′ q x)
 ∈-unique {.([ k ])} {k} (.k ⇒ v ⊣ x ∷ st) (tail p) head = ⊥-elim (min≤all′ p x)
 ∈-unique (k₁ ⇒ v ⊣ x ∷ st) (tail p) (tail q) = cong tail (∈-unique st p q)
- 
+
 prove-∉-head∧tail : {min : K+} {k k′ : K} {v : V} {p : [ k′ ] <+ min} {st : Store min} → k ≢ k′ → k ∉ st → k ∉ (k′ ⇒ v ⊣ p ∷ st)
 prove-∉-head∧tail k≢k′ k∉st head = k≢k′ refl
 prove-∉-head∧tail k≢k′ k∉st (tail is-∈) = k∉st is-∈
@@ -156,12 +156,32 @@ insert-changes-value : {min : K+} (st : Store min) (k : K) (v : V)
 insert-changes-value ε k v head = refl
 insert-changes-value ε k v (tail ())
 insert-changes-value (k ⇒ v ⊣ x ∷ st) l w pos with S.compare k l
-insert-changes-value (.l ⇒ v ⊣ x ∷ st) l w head | tri< a ¬b ¬c = ⊥-elim (¬b refl)
-insert-changes-value (k ⇒ v ⊣ x ∷ st) l w (tail pos) | tri< a ¬b ¬c = insert-changes-value st l w pos
+insert-changes-value (.l ⇒ v ⊣ x ∷ st) l w head | tri< a ¬b ¬c
+  = ⊥-elim (¬b refl)
+insert-changes-value (k ⇒ v ⊣ x ∷ st) l w (tail pos) | tri< a ¬b ¬c
+  = insert-changes-value st l w pos
 insert-changes-value (.l ⇒ v ⊣ x ∷ st) l w pos | tri≈ ¬a refl ¬c with ∈-unique _ head pos
-insert-changes-value (.l ⇒ v ⊣ x ∷ st) l w .head | tri≈ ¬a refl ¬c | refl = refl
+insert-changes-value (.l ⇒ v ⊣ x ∷ st) l w .head | tri≈ ¬a refl ¬c | refl
+  = refl
 insert-changes-value (k ⇒ v ⊣ x ∷ st) l w pos | tri> ¬a ¬b c with ∈-unique _ head pos
-insert-changes-value (k ⇒ v ⊣ x ∷ st) l w .head | tri> ¬a ¬b c | refl = refl
+insert-changes-value (k ⇒ v ⊣ x ∷ st) l w .head | tri> ¬a ¬b c | refl
+  = refl
+
+insert-preserves-keys : {min : K+} (st : Store min) (k : K) (v : V)
+                      → ∀ l → l ∈ st
+                      → l ∈ insert st k v
+insert-preserves-keys ε k v l ()
+insert-preserves-keys (k ⇒ v ⊣ x ∷ st) l w m pos with S.compare k l
+insert-preserves-keys (.m ⇒ v ⊣ x ∷ st) l w m head | tri< a ¬b ¬c
+  = head
+insert-preserves-keys (k ⇒ v ⊣ x ∷ st) l w m (tail pos) | tri< a ¬b ¬c
+  = tail (insert-preserves-keys st l w m pos)
+insert-preserves-keys (.m ⇒ v ⊣ x ∷ st) .m w m head | tri≈ ¬a refl ¬c
+  = head
+insert-preserves-keys (.l ⇒ v ⊣ x ∷ st) l w m (tail pos) | tri≈ ¬a refl ¬c
+  = tail pos
+insert-preserves-keys (k ⇒ v ⊣ x ∷ st) l w m pos | tri> ¬a ¬b c
+  = tail pos
 
 fromList : List (K × V) → ∃ Store
 fromList [] = ⊤ᴷ , ε
