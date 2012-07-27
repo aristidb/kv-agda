@@ -5,22 +5,24 @@ import Data.Nat.Properties as NP
 open import Relation.Binary
 open import Relation.Binary.PropositionalEquality
 open import Relation.Nullary
-open import Data.List
+open import Data.List hiding (zipWith)
 open import Data.Product
 open import Data.Maybe
 
 import kv
+import patch
 
 open StrictTotalOrder NP.strictTotalOrder
 
 open kv ℕ isStrictTotalOrder
 module n = kv ℕ isStrictTotalOrder
+open patch ℕ ℕ isStrictTotalOrder isDecEquivalence
 
 x : _
 x = proj₂ (fromList ((4 , 5) ∷ (1 , 2) ∷ []))
 
 y : _
-y = proj₂ (fromList ((1 , 2) ∷ (3 , 4) ∷ (5 , 6) ∷ []))
+y = proj₂ (fromList ((1 , 3) ∷ (3 , 4) ∷ (5 , 6) ∷ []))
 
 z : _
 z = merge x y
@@ -61,5 +63,15 @@ r1-list = refl
 zipped : _
 zipped = n.zipWith _,_ x y
 
-zipped-list : toList zipped ≡ (1 , just 2 , just 2) ∷ (3 , nothing , just 4) ∷ (4 , just 5 , nothing) ∷ (5 , nothing , just 6) ∷ []
+zipped-list : toList zipped ≡ (1 , just 2 , just 3) ∷ (3 , nothing , just 4) ∷ (4 , just 5 , nothing) ∷ (5 , nothing , just 6) ∷ []
 zipped-list = refl
+
+p : Store Op _
+p = proj₂ (fromList ((1 , patch.op (just 2) (just 100)) ∷ (2 , patch.op nothing (just 6)) ∷ []))
+
+x-p : toList (proj₂ (from-just (apply x p))) ≡ (1 , 100) ∷ (2 , 6) ∷ (4 , 5) ∷ []
+x-p = refl
+
+y-p : apply y p ≡ nothing
+y-p = refl
+
