@@ -309,7 +309,7 @@ mutual
       = k ⇒ f (just v) (just v₁) ⊣ z<+x∧z<+y⇒z<minimum+ x y ∷ zipWith f sa sb
 
 sequence : {V : Set} {m : K+} → Store (Maybe V) m → Maybe (Store V m)
-sequence ε = nothing
+sequence ε = just ε
 sequence (k ⇒ just v ⊣ p ∷ st) = maybe′ (λ st′ → just (k ⇒ v ⊣ p ∷ st′)) nothing (sequence st)
 sequence (k ⇒ nothing ⊣ p ∷ st) = nothing
 
