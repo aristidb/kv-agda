@@ -3,15 +3,15 @@ open import Relation.Binary
 open import Relation.Binary.PropositionalEquality as PE hiding ([_])
 
 module kv
-  (K V : Set)
+  (K : Set)
   {_<_ : Rel K Level.zero}
   (keyOrder : IsStrictTotalOrder _≡_ _<_)
 where
 
 open import Data.Unit using (⊤ ; tt)
 open import Data.Empty using (⊥ ; ⊥-elim)
-open import Function using (_∘_)
-open import Data.List hiding ([_])
+open import Function using (_∘_ ; flip)
+open import Data.List using (List ; [] ; _∷_)
 open import Data.Product
 open import Data.Sum
 open import Data.Maybe
@@ -98,6 +98,12 @@ z<+x∧z<+y⇒z<minimum+ z<+x z<+y | tri< a ¬b ¬c = z<+x
 z<+x∧z<+y⇒z<minimum+ z<+x z<+y | tri≈ ¬a refl ¬c = z<+x
 z<+x∧z<+y⇒z<minimum+ z<+x z<+y | tri> ¬a ¬b c = z<+y
 
+minimum+-⊤ : ∀ {x} → x ≡ minimum+ ⊤ᴷ x
+minimum+-⊤ {x} with S+.compare ⊤ᴷ x
+minimum+-⊤ | tri< () ¬b ¬c
+minimum+-⊤ | tri≈ ¬a refl ¬c = refl
+minimum+-⊤ | tri> ¬a ¬b c = refl
+
 minimum+-same : ∀ x → minimum+ x x ≡ x
 minimum+-same x with S+.compare x x
 minimum+-same x | tri< a ¬b ¬c = refl
@@ -117,42 +123,44 @@ minimum+-symmetric x .x | tri> ¬a ¬b c | tri≈ ¬d refl ¬f = ⊥-elim (¬b r
 minimum+-symmetric x y | tri> ¬a ¬b c | tri> ¬d ¬e f = ⊥-elim (¬d c)
 
 {- Ordered Key-Value Store -}
-data Store : (min : K+) → Set where
-  ε : Store ⊤ᴷ
-  _⇒_⊣_∷_ : {min : K+} (k : K) (v : V) → [ k ] <+ min → Store min → Store [ k ]
+data Store (V : Set) : (min : K+) → Set where
+  ε : Store V ⊤ᴷ
+  _⇒_⊣_∷_ : {min : K+} (k : K) (v : V) → [ k ] <+ min → Store V min → Store V [ k ]
 
-data _∈_ : {min : K+} → K → Store min → Set where
-  head : {min : K+} {k : K} {v : V} {p : [ k ] <+ min} {st : Store min} → k ∈ (k ⇒ v ⊣ p ∷ st)
-  tail : {min : K+} {k k′ : K} {v : V} {p : [ k′ ] <+ min} {st : Store min} → k ∈ st → k ∈ (k′ ⇒ v ⊣ p ∷ st)
+data _∈_ {V : Set} : {min : K+} → K → Store V min → Set where
+  head : {min : K+} {k : K} {v : V} {p : [ k ] <+ min} {st : Store V min} → k ∈ (k ⇒ v ⊣ p ∷ st)
+  tail : {min : K+} {k k′ : K} {v : V} {p : [ k′ ] <+ min} {st : Store V min} → k ∈ st → k ∈ (k′ ⇒ v ⊣ p ∷ st)
 
-_∉_ : {min : K+} → K → Store min → Set
+_∉_ : {V : Set} {min : K+} → K → Store V min → Set
 k ∉ st = ¬ (k ∈ st)
 
-min≤all : {min : K+} {k : K} {st : Store min} → k ∈ st → min ≤+ [ k ]
+min≤all : {V : Set} {min : K+} {k : K} {st : Store V min} → k ∈ st → min ≤+ [ k ]
 min≤all head = inj₂ refl
 min≤all (tail pos) with min≤all pos
 min≤all (tail {p = p} pos) | inj₁ x = inj₁ (S+.trans p x)
 min≤all (tail {p = p} pos) | inj₂ refl = inj₁ p
 
-min≤all′ : {min : K+} {k : K} {st : Store min} → k ∈ st → ¬ ([ k ] <+ min)
+min≤all′ : {V : Set} {min : K+} {k : K} {st : Store V min} → k ∈ st → ¬ ([ k ] <+ min)
 min≤all′ pos = x≤y→¬y<x _<+_ S+.isStrictPartialOrder (min≤all pos)
 
-∈-unique : {min : K+} {k : K} (st : Store min) → (p q : k ∈ st) → p ≡ q
+∈-unique : {V : Set} {min : K+} {k : K} (st : Store V min) → (p q : k ∈ st) → p ≡ q
 ∈-unique ε () ()
 ∈-unique {k = k} (.k ⇒ v ⊣ x ∷ st) head head = refl
 ∈-unique {k = k} (.k ⇒ v ⊣ x ∷ st) head (tail q) = ⊥-elim (min≤all′ q x)
-∈-unique {.([ k ])} {k} (.k ⇒ v ⊣ x ∷ st) (tail p) head = ⊥-elim (min≤all′ p x)
+∈-unique {k = k} (.k ⇒ v ⊣ x ∷ st) (tail p) head = ⊥-elim (min≤all′ p x)
 ∈-unique (k₁ ⇒ v ⊣ x ∷ st) (tail p) (tail q) = cong tail (∈-unique st p q)
 
-prove-∉-head∧tail : {min : K+} {k k′ : K} {v : V} {p : [ k′ ] <+ min} {st : Store min} → k ≢ k′ → k ∉ st → k ∉ (k′ ⇒ v ⊣ p ∷ st)
+prove-∉-head∧tail : {V : Set} {min : K+} {k k′ : K} {v : V} {p : [ k′ ] <+ min} {st : Store V min}
+                  → k ≢ k′ → k ∉ st → k ∉ (k′ ⇒ v ⊣ p ∷ st)
 prove-∉-head∧tail k≢k′ k∉st head = k≢k′ refl
 prove-∉-head∧tail k≢k′ k∉st (tail is-∈) = k∉st is-∈
 
-prove-∉-<min : {min : K+} {k k′ : K} {v : V} {p : [ k′ ] <+ min} {st : Store min} → k < k′ → k ∉ (k′ ⇒ v ⊣ p ∷ st)
+prove-∉-<min : {V : Set} {min : K+} {k k′ : K} {v : V} {p : [ k′ ] <+ min} {st : Store V min}
+             → k < k′ → k ∉ (k′ ⇒ v ⊣ p ∷ st)
 prove-∉-<min k<k′ head = S.irrefl refl k<k′
 prove-∉-<min k<k′ (tail {p = p} pos) = min≤all′ pos (S+.trans <+[ k<k′ ] p)
 
-search : {min : K+} (st : Store min) (k : K) → Dec (k ∈ st)
+search : {V : Set} {min : K+} (st : Store V min) (k : K) → Dec (k ∈ st)
 search ε k = no (λ ())
 search (k′ ⇒ v ⊣ x ∷ st) k with S.compare k k′
 search (k′ ⇒ v ⊣ x ∷ st) k | tri< a ¬b ¬c = no (prove-∉-<min a)
@@ -161,30 +169,30 @@ search (k′ ⇒ v ⊣ x ∷ st) k | tri> ¬a ¬b c with search st k
 search (k′ ⇒ v ⊣ x ∷ st) k | tri> ¬a ¬b c | yes k∈st = yes (tail k∈st)
 search (k′ ⇒ v ⊣ x ∷ st) k | tri> ¬a ¬b c | no k∉st = no (prove-∉-head∧tail ¬b k∉st)
 
-lookup : {k : K} {min : K+} {st : Store min} → k ∈ st → V
+lookup : {V : Set} {k : K} {min : K+} {st : Store V min} → k ∈ st → V
 lookup (head {v = v}) = v
 lookup (tail pos) = lookup pos
 
-find : {min : K+} (st : Store min) (k : K) → Maybe V
+find : {V : Set} {min : K+} (st : Store V min) (k : K) → Maybe V
 find st k with search st k
 find st k | yes pos = just (lookup pos)
 find st k | no ¬p = nothing
 
-insert : {min : K+} (st : Store min) (k : K) → V → Store (minimum+ min [ k ])
+insert : {V : Set} {min : K+} (st : Store V min) (k : K) → V → Store V (minimum+ min [ k ])
 insert ε k v = k ⇒ v ⊣ [ k ]<⊤ ∷ ε
 insert (k ⇒ v ⊣ x ∷ st) l w with S.compare k l
 insert (k ⇒ v ⊣ x ∷ st) l w | tri< a ¬b ¬c = k ⇒ v ⊣ z<+x∧z<+y⇒z<minimum+ x <+[ a ] ∷ insert st l w
 insert (.l ⇒ v ⊣ x ∷ st) l w | tri≈ ¬a refl ¬c = l ⇒ w ⊣ x ∷ st
 insert (k ⇒ v ⊣ x ∷ st) l w | tri> ¬a ¬b c = l ⇒ w ⊣ <+[ c ] ∷ (k ⇒ v ⊣ x ∷ st)
 
-insert-adds-key : {min : K+} (st : Store min) (k : K) (v : V) → k ∈ insert st k v
+insert-adds-key : {V : Set} {min : K+} (st : Store V min) (k : K) (v : V) → k ∈ insert st k v
 insert-adds-key ε k v = head
 insert-adds-key (k ⇒ v ⊣ x ∷ st) l w with S.compare k l
 insert-adds-key (k ⇒ v ⊣ x ∷ st) l w | tri< a ¬b ¬c = tail (insert-adds-key st l w)
 insert-adds-key (.l ⇒ v ⊣ x ∷ st) l w | tri≈ ¬a refl ¬c = head
 insert-adds-key (k ⇒ v ⊣ x ∷ st) l w | tri> ¬a ¬b c = head
 
-insert-changes-value : {min : K+} (st : Store min) (k : K) (v : V)
+insert-changes-value : {V : Set} {min : K+} (st : Store V min) (k : K) (v : V)
                      → (pos : k ∈ insert st k v)
                      → lookup pos ≡ v
 insert-changes-value ε k v head = refl
@@ -201,7 +209,7 @@ insert-changes-value (k ⇒ v ⊣ x ∷ st) l w pos | tri> ¬a ¬b c with ∈-un
 insert-changes-value (k ⇒ v ⊣ x ∷ st) l w .head | tri> ¬a ¬b c | refl
   = refl
 
-insert-preserves-keys : {min : K+} (st : Store min) (k : K) (v : V)
+insert-preserves-keys : {V : Set} {min : K+} (st : Store V min) (k : K) (v : V)
                       → ∀ l → l ∈ st
                       → l ∈ insert st k v
 insert-preserves-keys ε k v l ()
@@ -217,7 +225,7 @@ insert-preserves-keys (.l ⇒ v ⊣ x ∷ st) l w m (tail pos) | tri≈ ¬a refl
 insert-preserves-keys (k ⇒ v ⊣ x ∷ st) l w m pos | tri> ¬a ¬b c
   = tail pos
 
-insert-preserves-most-values : {min : K+} (st : Store min) (k : K) (v : V)
+insert-preserves-most-values : {V : Set} {min : K+} (st : Store V min) (k : K) (v : V)
                              → ∀ l → (l∈st : l ∈ st) → k ≢ l
                              → let l∈insert = insert-preserves-keys st k v l l∈st in
                                 lookup l∈st ≡ lookup l∈insert
@@ -234,27 +242,27 @@ insert-preserves-most-values (.l ⇒ v ⊣ x ∷ st) l w m (tail m∈st) l≢m |
 insert-preserves-most-values (k ⇒ v ⊣ x ∷ st) l w m m∈st l≢m | tri> ¬a ¬b c
   = refl
 
-insert-maybe : {min : K+} (st : Store min) (k : K) (v : Maybe V) → ∃ Store
+insert-maybe : {V : Set} {min : K+} (st : Store V min) (k : K) (v : Maybe V) → ∃ (Store V)
 insert-maybe st k (just x) = , insert st k x
 insert-maybe st k nothing = , st
 
-remove : {min : K+} {st : Store min} {k : K}
-       → k ∈ st → ∃ λ min′ → min ≤+ min′ × Store min′
+remove : {V : Set} {min : K+} {st : Store V min} {k : K}
+       → k ∈ st → ∃ λ min′ → min ≤+ min′ × Store V min′
 remove (head {p = p} {st = st}) = _ , inj₁ p , st
 remove (tail pos) with remove pos
 remove (tail {k′ = k} {v = v} {p = p} {st = st} pos) | min′ , min≤min′ , st′
   = _ , inj₂ refl , k ⇒ v ⊣ trans-<+-≤+ p min≤min′ ∷ st′
 
-fromList : List (K × V) → ∃ Store
+fromList : {V : Set} → List (K × V) → ∃ (Store V)
 fromList [] = ⊤ᴷ , ε
 fromList (x ∷ xs) with fromList xs
 fromList ((k , v) ∷ xs) | min , st = minimum+ min [ k ] , insert st k v
 
-toList : {min : K+} → Store min → List (K × V)
+toList : {V : Set} {min : K+} → Store V min → List (K × V)
 toList ε = []
 toList (k ⇒ v ⊣ x ∷ st) = (k , v) ∷ toList st
 
-merge : {min₁ min₂ : K+} (a : Store min₁) (b : Store min₂) → Store (minimum+ min₁ min₂)
+merge : {V : Set} {m n : K+} (a : Store V m) (b : Store V n) → Store V (minimum+ m n)
 merge ε ε = ε
 merge ε (k ⇒ v ⊣ x ∷ b) = k ⇒ v ⊣ x ∷ b
 merge (k ⇒ v ⊣ x ∷ a) ε = k ⇒ v ⊣ x ∷ a
@@ -281,3 +289,20 @@ merge-symmetric (k ⇒ v ⊣ x ∷ a) ε = refl
 merge-symmetric (k ⇒ v ⊣ x ∷ sa) (l ⇒ w ⊣ y ∷ sb) with S.compare k l
 ... | cmp = {!!}
 -}
+
+--_⇒?_⊣_∷_ : 
+
+mutual
+  zipWith : {V W R : Set} {m n : K+} → (Maybe V → Maybe W → R) → Store V m → Store W n → Store R (minimum+ m n)
+  zipWith {m = m} {n = n} f sa sb with S+.compare m n
+  zipWith f sa sb | tri< a ¬b ¬c = zipWith′ (inj₁ a) f sa sb
+  zipWith f sa sb | tri≈ ¬a refl ¬c = zipWith′ (inj₂ refl) f sa sb
+  zipWith f sa sb | tri> ¬a ¬b c = zipWith′ (inj₁ c) (flip f) sb sa
+
+  zipWith′ : {V W R : Set} {m n : K+} → m ≤+ n → (Maybe V → Maybe W → R) → Store V m → Store W n → Store R m
+  zipWith′ (inj₁ ()) f ε sb
+  zipWith′ (inj₁ p) f (k ⇒ v ⊣ x ∷ sa) sb
+    = k ⇒ f (just v) nothing ⊣ z<+x∧z<+y⇒z<minimum+ x p ∷ zipWith f sa sb
+  zipWith′ (inj₂ refl) f ε ε = ε
+  zipWith′ (inj₂ refl) f (k ⇒ v ⊣ x ∷ sa) (.k ⇒ v₁ ⊣ y ∷ sb)
+    = k ⇒ f (just v) (just v₁) ⊣ z<+x∧z<+y⇒z<minimum+ x y ∷ zipWith f sa sb
