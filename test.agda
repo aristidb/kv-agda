@@ -7,13 +7,14 @@ open import Relation.Binary.PropositionalEquality
 open import Relation.Nullary
 open import Data.List
 open import Data.Product
+open import Data.Maybe
 
 import kv
 
 open StrictTotalOrder NP.strictTotalOrder
 
-open kv ℕ ℕ isStrictTotalOrder
-module n = kv ℕ ℕ isStrictTotalOrder
+open kv ℕ isStrictTotalOrder
+module n = kv ℕ isStrictTotalOrder
 
 x : _
 x = proj₂ (fromList ((4 , 5) ∷ (1 , 2) ∷ []))
@@ -57,4 +58,8 @@ r1 = proj₂ (proj₂ (remove t1))
 r1-list : toList r1 ≡ (4 , 5) ∷ []
 r1-list = refl
 
+zipped : _
+zipped = n.zipWith _,_ x y
 
+zipped-list : toList zipped ≡ (1 , just 2 , just 2) ∷ (3 , nothing , just 4) ∷ (4 , just 5 , nothing) ∷ (5 , nothing , just 6) ∷ []
+zipped-list = refl
