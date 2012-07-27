@@ -299,10 +299,22 @@ mutual
   zipWith f sa sb | tri≈ ¬a refl ¬c = zipWith′ (inj₂ refl) f sa sb
   zipWith f sa sb | tri> ¬a ¬b c = zipWith′ (inj₁ c) (flip f) sb sa
 
-  zipWith′ : {V W R : Set} {m n : K+} → m ≤+ n → (Maybe V → Maybe W → R) → Store V m → Store W n → Store R m
-  zipWith′ (inj₁ ()) f ε sb
-  zipWith′ (inj₁ p) f (k ⇒ v ⊣ x ∷ sa) sb
-    = k ⇒ f (just v) nothing ⊣ z<+x∧z<+y⇒z<minimum+ x p ∷ zipWith f sa sb
-  zipWith′ (inj₂ refl) f ε ε = ε
-  zipWith′ (inj₂ refl) f (k ⇒ v ⊣ x ∷ sa) (.k ⇒ v₁ ⊣ y ∷ sb)
-    = k ⇒ f (just v) (just v₁) ⊣ z<+x∧z<+y⇒z<minimum+ x y ∷ zipWith f sa sb
+  private
+    zipWith′ : {V W R : Set} {m n : K+} → m ≤+ n → (Maybe V → Maybe W → R) → Store V m → Store W n → Store R m
+    zipWith′ (inj₁ ()) f ε sb
+    zipWith′ (inj₁ p) f (k ⇒ v ⊣ x ∷ sa) sb
+      = k ⇒ f (just v) nothing ⊣ z<+x∧z<+y⇒z<minimum+ x p ∷ zipWith f sa sb
+    zipWith′ (inj₂ refl) f ε ε = ε
+    zipWith′ (inj₂ refl) f (k ⇒ v ⊣ x ∷ sa) (.k ⇒ v₁ ⊣ y ∷ sb)
+      = k ⇒ f (just v) (just v₁) ⊣ z<+x∧z<+y⇒z<minimum+ x y ∷ zipWith f sa sb
+
+sequence : {V : Set} {m : K+} → Store (Maybe V) m → Maybe (Store V m)
+sequence ε = nothing
+sequence (k ⇒ just v ⊣ p ∷ st) = maybe′ (λ st′ → just (k ⇒ v ⊣ p ∷ st′)) nothing (sequence st)
+sequence (k ⇒ nothing ⊣ p ∷ st) = nothing
+
+catMaybes : {V : Set} {m : K+} → Store (Maybe V) m → ∃ λ n → m ≤+ n × Store V n
+catMaybes ε = _ , inj₂ refl , ε
+catMaybes (k ⇒ v ⊣ p ∷ st) with catMaybes st
+catMaybes (k ⇒ just x ⊣ p ∷ st) | n , m≤n , st′ = _ , inj₂ refl , k ⇒ x ⊣ trans-<+-≤+ p m≤n ∷ st′
+catMaybes (k ⇒ nothing ⊣ p ∷ st) | n , m≤n , st′ = n , inj₁ (trans-<+-≤+ p m≤n) , st′
