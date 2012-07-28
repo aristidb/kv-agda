@@ -11,9 +11,9 @@ where
 
 import kv
 open import Data.Maybe
-open import Data.Product
+open import Data.Product hiding (map)
 open import Relation.Nullary
-open import Function
+open import Function using (_∘_)
 open import Category.Functor
 
 open RawFunctor {Level.zero} Data.Maybe.functor
@@ -28,17 +28,18 @@ record Op : Set where
   field old : Maybe V
         new : Maybe V
 
-{-
-apply-Op : ∀ {m} → Store V m → K → Op → Maybe (∃ (Store V))
-apply-Op st k (op old new) with search st k
-apply-Op st k (op (just old) new) | yes p with VEq._≟_ old (lookup p)
-apply-Op st k (op (just old) new) | yes p | yes q with remove p
-... | _ , _ , st′ = just (insert-maybe st′ k new)
-apply-Op st k (op (just old) new) | yes p | no ¬q = nothing
-apply-Op st k (op nothing new) | yes p = nothing
-apply-Op st k (op (just old) new) | no ¬p = nothing
-apply-Op st k (op nothing new) | no ¬p = just (insert-maybe st k new)
--}
+inv : Op → Op
+inv (op old new) = op new old
+
+_⊙_ : Op → Op → Maybe Op
+op oldF newF ⊙ op oldG newG with oldF MVEq.≟ newG
+op oldF newF ⊙ op oldG newG | yes p = just (op oldG newG)
+op oldF newF ⊙ op oldG newG | no ¬p = nothing
+
+_⊙′_ : Maybe Op → Maybe Op → Maybe Op
+just f ⊙′ just g = f ⊙ g
+just f ⊙′ nothing = just f
+nothing ⊙′ g = g
 
 single : Maybe V → Op → Maybe (Maybe V)
 single old (op old′ new) with old MVEq.≟ old′
@@ -49,16 +50,28 @@ single′ : Maybe V → Maybe Op → Maybe (Maybe V)
 single′ old (just x) = single old x
 single′ old nothing = just old
 
-{-
--- TODO: iterate over both Store's in the same go?
-apply : ∀ {m n} → Store V m → Store Op n → Maybe (∃ (Store V))
-apply cont kv.ε = just (, cont)
-apply cont (k kv.⇒ v ⊣ p ∷ patch) with apply-Op cont k v
-apply cont (k kv.⇒ v ⊣ p ∷ patch) | just (_ , cont′) = apply cont′ patch
-apply cont (k kv.⇒ v ⊣ p ∷ patch) | nothing = nothing
--}
+--single-inv : ∀ op → 
 
 apply : ∀ {m n} → Store V m → Store Op n → Maybe (∃ (Store V))
 apply c p = (unwrap ∘ catMaybes) <$> sequence (zipWith single′ c p)
   where unwrap : _ → _
         unwrap (n , m≤n , st) = n , st
+
+id : Store Op ⊤ᴷ
+id = ε
+
+invert : ∀ {m} → Store Op m → Store Op m
+invert = map inv
+
+invert-correct : ∀ {m n} (cont : Store V m) (patch : Store Op n)
+               → {res : ∃ (Store V)} → apply cont patch ≡ just res
+               → apply (proj₂ res) (invert patch) ≡ just (, cont)
+invert-correct cont kv.ε {res} valid = {!!}
+invert-correct cont (k kv.⇒ v ⊣ x ∷ patch) {proj₁ , proj₂} valid = {!!}
+
+compose : ∀ {m n} → Store Op m → Store Op n → Maybe (Store Op (minimum+ m n))
+compose f g = sequence (zipWith _⊙′_ f g)
+
+-- ?
+transform : {!!}
+transform = {!!}
