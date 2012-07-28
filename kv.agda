@@ -12,8 +12,8 @@ open import Data.Unit using (⊤ ; tt)
 open import Data.Empty using (⊥ ; ⊥-elim)
 open import Function using (_∘_ ; flip)
 open import Data.List using (List ; [] ; _∷_)
-open import Data.Product
-open import Data.Sum
+open import Data.Product hiding (map)
+open import Data.Sum hiding (map)
 open import Data.Maybe
 open import Relation.Nullary
 
@@ -318,3 +318,7 @@ catMaybes ε = _ , inj₂ refl , ε
 catMaybes (k ⇒ v ⊣ p ∷ st) with catMaybes st
 catMaybes (k ⇒ just x ⊣ p ∷ st) | n , m≤n , st′ = _ , inj₂ refl , k ⇒ x ⊣ trans-<+-≤+ p m≤n ∷ st′
 catMaybes (k ⇒ nothing ⊣ p ∷ st) | n , m≤n , st′ = n , inj₁ (trans-<+-≤+ p m≤n) , st′
+
+map : {V W : Set} {m : K+} → (V → W) → Store V m → Store W m
+map f ε = ε
+map f (k ⇒ v ⊣ x ∷ st) = k ⇒ f v ⊣ x ∷ map f st
