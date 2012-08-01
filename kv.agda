@@ -10,7 +10,7 @@ where
 
 open import Data.Unit using (⊤ ; tt)
 open import Data.Empty using (⊥ ; ⊥-elim)
-open import Function using (_∘_ ; flip)
+open import Function using (_∘_ ; flip ; id)
 open import Data.List using (List ; [] ; _∷_)
 open import Data.Product hiding (map)
 open import Data.Sum hiding (map)
@@ -127,6 +127,9 @@ data Store (V : K → Set) : (min : K+) → Set where
   ε : Store V ⊤ᴷ
   _⇒_⊣_∷_ : {min : K+} (k : K) (v : V k) → [ k ] <+ min → Store V min → Store V [ k ]
 
+Store′ : Set → K+ → Set
+Store′ V min = Store (λ _ → V) min
+
 data _∈_ {V : K → Set} : ∀ {min} → K → Store V min → Set where
   head : {min : K+} {k : K} {v : V k} {p : [ k ] <+ min} {st : Store V min} → k ∈ (k ⇒ v ⊣ p ∷ st)
   tail : {min : K+} {k k′ : K} {v : V k′} {p : [ k′ ] <+ min} {st : Store V min} → k ∈ st → k ∈ (k′ ⇒ v ⊣ p ∷ st)
@@ -160,6 +163,15 @@ prove-∉-<min : ∀ {V min k k′ v} {p : [ k′ ] <+ min} {st : Store V min}
 prove-∉-<min k<k′ head = S.irrefl refl k<k′
 prove-∉-<min k<k′ (tail {p = p} pos) = min≤all′ pos (S+.trans <+[ k<k′ ] p)
 
+prove-∉-<+min : ∀ {V m k} {st : Store V m} → [ k ] <+ m → k ∉ st
+prove-∉-<+min {st = ε} [ k ]<⊤ = λ ()
+prove-∉-<+min {st = l ⇒ v ⊣ x ∷ st} <+[ p ] = prove-∉-<min p
+
+dec-∈-tail : ∀ {V min k k′ v} {p : [ k′ ] <+ min}
+           → (st : Store V min) → k ≢ k′ → Dec (k ∈ st) → Dec (k ∈ (k′ ⇒ v ⊣ p ∷ st))
+dec-∈-tail st k≢k′ (yes p) = yes (tail p)
+dec-∈-tail st k≢k′ (no ¬p) = no (prove-∉-head∧tail k≢k′ ¬p)
+
 search : ∀ {V min} (st : Store V min) (k : K) → Dec (k ∈ st)
 search ε k = no (λ ())
 search (k′ ⇒ v ⊣ x ∷ st) k with S.compare k k′
@@ -173,10 +185,16 @@ lookup : ∀ {V k min} {st : Store V min} → k ∈ st → V k
 lookup (head {v = v}) = v
 lookup (tail pos) = lookup pos
 
-find : ∀ {V min} (st : Store V min) (k : K) → Maybe (V k)
+record Value-of_∈_ {V : K → Set} {min : K+} (k : K) (st : Store V min) : Set where
+  constructor has-value 
+  field v : V k
+        pos : k ∈ st
+        p : lookup pos ≡ v
+
+find : ∀ {V min} (st : Store V min) (k : K) → Dec (Value-of k ∈ st)
 find st k with search st k
-find st k | yes pos = just (lookup pos)
-find st k | no ¬p = nothing
+find st k | yes pos = yes (has-value (lookup pos) pos refl)
+find st k | no ¬p = no (λ x → ¬p (Value-of_∈_.pos x))
 
 insert : ∀ {V min} (st : Store V min) (k : K) → V k → Store V (minimum+ min [ k ])
 insert ε k v = k ⇒ v ⊣ [ k ]<⊤ ∷ ε
@@ -280,46 +298,70 @@ merge (k ⇒ v ⊣ x ∷ sa) (l ⇒ w ⊣ y ∷ sb) | tri> ¬a ¬b c
     ⊣ z<+x∧z<+y⇒z<minimum+ (z<+x∧z<+y⇒z<minimum+ (S+.trans <+[ c ] x) y) <+[ c ]
     ∷ insert (merge sa sb) k v
 
-{-
-merge-symmetric : {m n : K+} (a : Store m) (b : Store n)
-                → merge a b ≡ subst Store (minimum+-symmetric n m) (merge b a)
-merge-symmetric ε ε = refl
-merge-symmetric ε (k ⇒ v ⊣ x ∷ b) = refl
-merge-symmetric (k ⇒ v ⊣ x ∷ a) ε = refl
-merge-symmetric (k ⇒ v ⊣ x ∷ sa) (l ⇒ w ⊣ y ∷ sb) with S.compare k l
-... | cmp = {!!}
--}
+data OneOrBoth (A B : Set) : Set where
+  left : A → ¬ B → OneOrBoth A B
+  right : ¬ A → B → OneOrBoth A B
+  both : A → B → OneOrBoth A B
 
---_⇒?_⊣_∷_ : 
+rotate : ∀ {A B} → OneOrBoth A B → OneOrBoth B A
+rotate (left x x₁) = right x₁ x
+rotate (right x x₁) = left x₁ x
+rotate (both x x₁) = both x₁ x
+
+map-OneOrBoth : ∀ {A B X Y} → (A → X) → (¬ A → ¬ X) → (B → Y) → (¬ B → ¬ Y) → OneOrBoth A B → OneOrBoth X Y
+map-OneOrBoth f ¬f g ¬g (left x ¬y) = left (f x) (¬g ¬y)
+map-OneOrBoth f ¬f g ¬g (right ¬x y) = right (¬f ¬x) (g y)
+map-OneOrBoth f ¬f g ¬g (both x y) = both (f x) (g y)
 
 mutual
-  zipWith : ∀ {V W R m n} → (∀ {k} → Maybe (V k) → Maybe (W k) → R k) → Store V m → Store W n → Store R (minimum+ m n)
-  zipWith {m = m} {n = n} f sa sb with S+.compare m n
-  zipWith f sa sb | tri< a ¬b ¬c = zipWith′ (inj₁ a) f sa sb
-  zipWith f sa sb | tri≈ ¬a refl ¬c = zipWith′ (inj₂ refl) f sa sb
-  zipWith f sa sb | tri> ¬a ¬b c = zipWith′ (inj₁ c) (flip f) sb sa
+  zipWith : ∀ {m n V W R} (sa : Store V m) (sb : Store W n)
+             (f : ∀ k → minimum+ m n ≤+ [ k ] → OneOrBoth (k ∈ sa) (k ∈ sb) → R k)
+             → Store R (minimum+ m n)
+  zipWith {m} {n} sa sb f with S+.compare m n
+  zipWith sa sb f | tri< a ¬b ¬c = zipWith< a sa sb f
+  zipWith sa sb f | tri≈ ¬a refl ¬c = zipWith≡ sa sb f
+  zipWith sa sb f | tri> ¬a ¬b c = zipWith< c sb sa (λ k p ab → f k p (rotate ab))
 
   private
-    zipWith′ : ∀ {V W R m n} → m ≤+ n → (∀ {k} → Maybe (V k) → Maybe (W k) → R k) → Store V m → Store W n → Store R m
-    zipWith′ (inj₁ ()) f ε sb
-    zipWith′ (inj₁ p) f (k ⇒ v ⊣ x ∷ sa) sb
-      = k ⇒ f (just v) nothing ⊣ z<+x∧z<+y⇒z<minimum+ x p ∷ zipWith f sa sb
-    zipWith′ (inj₂ refl) f ε ε = ε
-    zipWith′ (inj₂ refl) f (k ⇒ v ⊣ x ∷ sa) (.k ⇒ v₁ ⊣ y ∷ sb)
-      = k ⇒ f (just v) (just v₁) ⊣ z<+x∧z<+y⇒z<minimum+ x y ∷ zipWith f sa sb
+    zipWith< : ∀ {m n V W R} → m <+ n → (sa : Store V m) (sb : Store W n)
+                (f : ∀ k → m ≤+ [ k ] → OneOrBoth (k ∈ sa) (k ∈ sb) → R k)
+                → Store R m
+    zipWith< () ε sb f
+    zipWith< m<+n (k ⇒ v ⊣ x ∷ sa) sb f
+      = k ⇒ f k (inj₂ refl) (left head (prove-∉-<+min m<+n))
+        ⊣ z<+x∧z<+y⇒z<minimum+ x m<+n
+        ∷ zipWith sa sb (λ k′ p ab →
+                            let k<k′ = trans-<+-≤+ (z<+x∧z<+y⇒z<minimum+ x m<+n) p
+                                k′≢k = λ k≡k′ → S.irrefl (sym k≡k′) (unbox-<+ k<k′)
+                            in
+                            f k′ (inj₁ k<k′)
+                              (map-OneOrBoth tail (prove-∉-head∧tail k′≢k) id id ab))
 
-{-
-sequence : {V : Set} {m : K+} → Store (Maybe V) m → Maybe (Store V m)
+    zipWith≡ : ∀ {m V W R} (sa : Store V m) (sb : Store W m)
+                (f : ∀ k → m ≤+ [ k ] → OneOrBoth (k ∈ sa) (k ∈ sb) → R k)
+                → Store R m
+    zipWith≡ ε ε f = ε
+    zipWith≡ (k ⇒ v ⊣ x ∷ sa) (.k ⇒ w ⊣ y ∷ sb) f
+      = k ⇒ f k (inj₂ refl) (both head head)
+        ⊣ z<+x∧z<+y⇒z<minimum+ x y
+        ∷ zipWith sa sb (λ k′ p ab →
+                            let k<k′ = trans-<+-≤+ (z<+x∧z<+y⇒z<minimum+ x y) p
+                                k′≢k = λ k≡k′ → S.irrefl (sym k≡k′) (unbox-<+ k<k′)
+                            in
+                            f k′ (inj₁ k<k′)
+                            (map-OneOrBoth tail (prove-∉-head∧tail k′≢k) tail (prove-∉-head∧tail k′≢k) ab)
+                         )
+
+sequence : {V : Set} {m : K+} → Store′ (Maybe V) m → Maybe (Store′ V m)
 sequence ε = just ε
 sequence (k ⇒ just v ⊣ p ∷ st) = maybe′ (λ st′ → just (k ⇒ v ⊣ p ∷ st′)) nothing (sequence st)
 sequence (k ⇒ nothing ⊣ p ∷ st) = nothing
 
-catMaybes : {V : Set} {m : K+} → Store (Maybe V) m → ∃ λ n → m ≤+ n × Store V n
+catMaybes : {V : Set} {m : K+} → Store′ (Maybe V) m → ∃ λ n → m ≤+ n × Store′ V n
 catMaybes ε = _ , inj₂ refl , ε
 catMaybes (k ⇒ v ⊣ p ∷ st) with catMaybes st
 catMaybes (k ⇒ just x ⊣ p ∷ st) | n , m≤n , st′ = _ , inj₂ refl , k ⇒ x ⊣ trans-<+-≤+ p m≤n ∷ st′
 catMaybes (k ⇒ nothing ⊣ p ∷ st) | n , m≤n , st′ = n , inj₁ (trans-<+-≤+ p m≤n) , st′
--}
 
 map : {V W : K → Set} {m : K+} → (∀ {k} → V k → W k) → Store V m → Store W m
 map f ε = ε
