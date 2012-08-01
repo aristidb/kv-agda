@@ -12,66 +12,80 @@ where
 import kv
 open import Data.Maybe
 open import Data.Product hiding (map)
+open import Data.Sum hiding (map)
 open import Relation.Nullary
-open import Function using (_∘_)
 open import Category.Functor
 
 open RawFunctor {Level.zero} Data.Maybe.functor
 
 module VEq = IsDecEquivalence valueEq
-module MVEq = DecSetoid (Data.Maybe.decSetoid (record { isDecEquivalence = valueEq }))
 
 open kv K keyOrder
 
-record Op : Set where
+record Op (old : Maybe V) : Set where
   constructor op
-  field old : Maybe V
-        new : Maybe V
+  field new : Maybe V
 
+id : ∀ {old} → Op old
+id {x} = op x
+
+inv : ∀ {old} → Op old → ∃ Op
+inv {old} o = Op.new o , op old
+
+apply : (x : Maybe V) → Op x → Maybe V
+apply _ y = Op.new y
+
+applyMaybe : (x : Maybe V) → Maybe (Op x) → Maybe V
+applyMaybe x nothing = x
+applyMaybe x (just y) = apply x y
+
+compose : ∀ {old} → (a : Op old) → Op (Op.new a) → Op old
+compose _ b = op (Op.new b)
+
+apply-compose : ∀ old (a : Op old) (b : Op (Op.new a))
+              → apply old (compose a b) ≡ apply (apply old a) b
+apply-compose old a b = refl
+
+Patch : ∀ {m} → Store′ V m → K+ → Set
+Patch st = Store (λ k → Op {!!})
+
+idP : ∀ {m} {st : Store′ V m} → Patch st ⊤ᴷ
+idP = ε
+
+patch1 : ∀ {m n} → (st : Store′ V m) → Patch st n → Store′ (Maybe V) (minimum+ m n)
+patch1 st p = zipWith {!applyMaybe!} st {!p!}
+
+{-
 inv : Op → Op
 inv (op old new) = op new old
 
-_⊙_ : Op → Op → Maybe Op
-op oldF newF ⊙ op oldG newG with oldF MVEq.≟ newG
-op oldF newF ⊙ op oldG newG | yes p = just (op oldG newG)
-op oldF newF ⊙ op oldG newG | no ¬p = nothing
+compat : Maybe V → Op → Set
+compat x y = x ≡ Op.old y
 
-_⊙′_ : Maybe Op → Maybe Op → Maybe Op
-just f ⊙′ just g = f ⊙ g
-just f ⊙′ nothing = just f
-nothing ⊙′ g = g
+apply : (x : Maybe V) (o : Op) → compat x o → Maybe V
+apply _ o _ = Op.new o
 
-single : Maybe V → Op → Maybe (Maybe V)
-single old (op old′ new) with old MVEq.≟ old′
-single old (op old′ new) | yes p = just new
-single old (op old′ new) | no ¬p = nothing
+compose : (f g : Op) → Op.new g ≡ Op.old f → Op
+compose f g p = op (Op.old g) (Op.new f)
 
-single′ : Maybe V → Maybe Op → Maybe (Maybe V)
-single′ old (just x) = single old x
-single′ old nothing = just old
+apply-compose : (f g : Op) (composable : Op.new g ≡ Op.old f)
+              → (x : Maybe V) (applicable : compat x g)
+              → apply x (compose f g composable) applicable ≡ apply (apply x g applicable) f composable
+apply-compose f g composable x applicable = refl
 
---single-inv : ∀ op → 
+Patch : K+ → Set
+Patch min = Store Op min
 
-apply : ∀ {m n} → Store V m → Store Op n → Maybe (∃ (Store V))
-apply c p = (unwrap ∘ catMaybes) <$> sequence (zipWith single′ c p)
-  where unwrap : _ → _
-        unwrap (n , m≤n , st) = n , st
+patch-compatible : ∀ {m n} → Store V m → Patch n → Set
+patch-compatible st P = ∀ {k} → (p : k ∈ P) → let old = Op.old (lookup p)
+                        in Σ (k ∈ st) (λ pos → just (lookup pos) ≡ old)
+                           ⊎ k ∉ st × nothing ≡ old
 
-id : Store Op ⊤ᴷ
-id = ε
+patch′ : ∀ {m n} (st : Store V m) (P : Patch n) → patch-compatible st P → Store (Maybe V) (minimum+ m n)
+patch′ st P = {!!}
 
-invert : ∀ {m} → Store Op m → Store Op m
-invert = map inv
+patch : ∀ {m n} (st : Store V m) (P : Patch n) → patch-compatible st P → ∃ (Store V)
+patch st P c with catMaybes (patch′ st P c)
+... | m , _ , st′ = m , st′
 
-invert-correct : ∀ {m n} (cont : Store V m) (patch : Store Op n)
-               → {res : ∃ (Store V)} → apply cont patch ≡ just res
-               → apply (proj₂ res) (invert patch) ≡ just (, cont)
-invert-correct cont kv.ε {res} valid = {!!}
-invert-correct cont (k kv.⇒ v ⊣ x ∷ patch) {proj₁ , proj₂} valid = {!!}
-
-compose : ∀ {m n} → Store Op m → Store Op n → Maybe (Store Op (minimum+ m n))
-compose f g = sequence (zipWith _⊙′_ f g)
-
--- ?
-transform : {!!}
-transform = {!!}
+-}
