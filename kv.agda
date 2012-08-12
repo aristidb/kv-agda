@@ -12,7 +12,7 @@ open import Data.Unit using (⊤ ; tt)
 open import Data.Empty using (⊥ ; ⊥-elim)
 open import Function using (_∘_ ; flip ; id)
 open import Data.List using (List ; [] ; _∷_)
-open import Data.Product hiding (map)
+open import Data.Product hiding (map ; zip)
 open import Data.Sum hiding (map)
 open import Data.Maybe
 open import Relation.Nullary
@@ -351,6 +351,10 @@ mutual
                             f k′ (inj₁ k<k′)
                             (map-OneOrBoth tail (prove-∉-head∧tail k′≢k) tail (prove-∉-head∧tail k′≢k) ab)
                          )
+
+zip : ∀ {m n V W R} (sa : Store V m) (sb : Store W n)
+             → Store (λ k → OneOrBoth (k ∈ sa) (k ∈ sb)) (minimum+ m n)
+zip = {!!}
 
 sequence : {V : Set} {m : K+} → Store′ (Maybe V) m → Maybe (Store′ V m)
 sequence ε = just ε
